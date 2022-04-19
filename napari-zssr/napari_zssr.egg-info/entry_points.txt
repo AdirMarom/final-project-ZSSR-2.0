@@ -1,0 +1,2 @@
+[napari.manifest]
+napari-zssr = napari_zssr:napari.yaml
