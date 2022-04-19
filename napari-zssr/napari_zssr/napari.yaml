@@ -1,0 +1,9 @@
+name: napari-zssr
+contributions:
+  commands:
+    - id: napari-zssr.say_hi
+      title: invoke zssr plugin
+      python_name: napari_zssr.zssr.zssr_gui:widget_wrapper
+  widgets:
+    - command: napari-zssr.say_hi  # note, same as command.id above
+      display_name: zssr plugin
