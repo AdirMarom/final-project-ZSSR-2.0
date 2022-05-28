@@ -1,5 +1,7 @@
 # napari-ZSSR-plugin
 
+<br/>
+<br/>
 
 A plugin that enables 2D image Zero Shot Super Resolution provided by Ben Gurion University.
 
