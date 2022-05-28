@@ -1,12 +1,20 @@
 import os
+from os import listdir
 from typing import Any
 from napari_plugin_engine import napari_hook_implementation
 import time
+from threading import Thread
+from multiprocessing.pool import ThreadPool
+import concurrent.futures
 import numpy as np
-
+import napari
 from napari import Viewer
 from napari.layers import Image, Shapes
 from magicgui import magicgui
+import PIL
+from matplotlib import image
+from napari.utils.notifications import show_info
+from .conf import *
 
 
 def read_logging(log_file, logwindow):
@@ -22,8 +30,30 @@ def read_logging(log_file, logwindow):
                 logwindow.cursor.insertText(line)
                 yield line
 
-# logo = os.path.join(__file__, 'logo/logo_small.png')
 
+def watch_file(filename, time_limit, check_interval):
+    now = time.time()
+    last_time = now + time_limit
+    while time.time() <= last_time:
+        if os.path.exists(filename):
+            return True
+        else:
+            # Wait for check interval seconds, then check again.
+            time.sleep(check_interval)
+
+    return False
+
+
+def create_new_file(command, pic_name):
+    pic_name = pic_name.replace(".png", "")
+    sbatch_file_path = CURRENT_FOLER_PATH + os.sep + 'sbatch_gpu1.example'
+    with open(sbatch_file_path, "r") as old_file:
+        with open(pic_name, "w") as newfile:
+            for line in old_file:
+                newfile.write(line)
+            newfile.write("\n")
+            newfile.write(command)
+    return pic_name
 
 
 def widget_wrapper():
@@ -36,58 +66,60 @@ def widget_wrapper():
         model_type=dict(widget_type='ComboBox', label='model type', choices=['zssr', ''],
                         value='zssr',
                         tooltip='there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model'),
-        custom_model=dict(widget_type='FileEdit', label='select 2D image directory: ',
-                          tooltip='specify directory path to 2D images', mode='d'),
+        file_dir=dict(widget_type='FileEdit', label='select 2D image: ',
+                      tooltip='specify file path to it here', mode='d'),
         flag_label=dict(widget_type='Label', label='              Set ZSSR configurations '),
         zssr_flag_X4=dict(widget_type='CheckBox', text=' Estimate the X4 kernel'),
         zssr_flag_SR=dict(widget_type='CheckBox', text='Perform ZSSR using the estimated kernel'),
         zssr_flag_REAL=dict(widget_type='CheckBox', text='Real-image configuration (effects only the ZSSR)'),
     )
-
     def widget(  # label_logo,
             label_line_2,
             label_line_3,
             viewer: Viewer,
             image_layer: Image,
             model_type,
-            custom_model,
+            file_dir,
             flag_label,
             zssr_flag_X4,
             zssr_flag_SR,
             zssr_flag_REAL
     ) -> None:
-        # Import when users activate plugin
-        #if not hasattr(widget, 'cellpose_layers'):
-        #    widget.cellpose_layers = []
-       ## print(widget.zssr_flag_REAL.value)
-        #image = image_layer.data
-        ## put channels last
-        #widget.n_channels = 0
-        #widget.channel_axis = None
-        #if image_layer.ndim == 4 and not image_layer.rgb:
-        #    chan = np.nonzero([a == 'c' for a in viewer.dims.axis_labels])[0]
-        #    if len(chan) > 0:
-        #        chan = chan[0]
-        #        widget.channel_axis = chan
-        #        widget.n_channels = image.shape[chan]
-        #elif image_layer.ndim == 3 and not image_layer.rgb:
-        #    image = image[:, :, :, np.newaxis]
-        #elif image_layer.rgb:
-        #    widget.channel_axis = -1
-        zssr_run_path = "C:\\Users\\dorle\\PycharmProjects\\final-project-ZSSR-2.0\\ZSSR\KernelGAN-master\\train.py "
-        command = "python " + zssr_run_path +"--input-dir "
-        if custom_model: #if path given - run ZSSR with chosen flags
-            command += str(custom_model) + " "
+
+        zssr_run_path = ZSSR_RUN_PATH
+        command = "python " + zssr_run_path + " --input-dir "
+        if file_dir != ".":  # if path given - run ZSSR with chosen flags
+            command += str(file_dir) + " "
             if zssr_flag_SR:
-                command +="--SR "
+                command += "--SR "
             if zssr_flag_REAL:
-                command +="--real "
+                command += "--real "
             if zssr_flag_X4:
-                command +="--x4"
-            print(command)
-            #os.system(command)
-
-
+                command += "--X4 "
+            output_path = ZSSR_RESULTS_PATH
+            command += "--output-dir " + output_path
+            show_info('ZSSR is started, please wait...')
+            pic_name = listdir(file_dir)[0]
+            if IN_CSE_LABS:
+                new_file_to_run = create_new_file(command, pic_name)
+                print("new file to run is: ")
+                print(str(new_file_to_run))
+                run_status = os.system("sbatch " + str(new_file_to_run))
+            else:
+                run_status = os.system(command)
+            print("pic name is: ")
+            tmp_pic_name = pic_name.replace(".png", "")
+            print(str(tmp_pic_name))
+            path_to_check_if_exists = output_path + os.sep + str(tmp_pic_name) + "/ZSSR_" + pic_name
+            print("the path you are checking is:" + str(path_to_check_if_exists))
+            print('run status is: ' + str(run_status))
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(watch_file, path_to_check_if_exists, 3600, 60)
+                return_value = future.result()
+                if return_value:
+                    print("The path exists")
+                    viewer = napari.viewer.current_viewer()
+                    viewer.open(path_to_check_if_exists)
 
     return widget
 

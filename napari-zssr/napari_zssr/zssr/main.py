@@ -1,6 +1,6 @@
 import napari
 from napari.utils.notifications import show_info
-from napari_zssr.zssr.utils import show_message
+from utils import show_message
 
 
 def show_hello_message_from_main():
