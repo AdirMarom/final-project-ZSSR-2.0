@@ -54,7 +54,8 @@ contributors are welcome.
 
 "zssr-napari-plugin" is free and open source software.
 
-
+<br/>
+<br/>
 
 [conf]: https://github.com/AdirMarom/final-project-ZSSR-2.0/blob/napari_zssr/napari-zssr/napari_zssr/zssr/conf.py
 [here]: https://github.com/AdirMarom/final-project-ZSSR-2.0/tree/main
